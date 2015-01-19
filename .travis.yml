@@ -1,0 +1,18 @@
+language: go
+
+go:
+  - 1.3
+  - tip
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - go: tip
+
+install:
+  - go get github.com/mattn/gom
+
+script: make test
+
+notifications:
+  email: false
