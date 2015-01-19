@@ -9,8 +9,15 @@ matrix:
   allow_failures:
     - go: tip
 
+services:
+  - mongodb
+
 install:
   - go get github.com/mattn/gom
+
+before_script:
+  # MongoDB on Travis needs some time to warm up
+  - sleep 15
 
 script: make test
 

@@ -5,9 +5,18 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
+	"gopkg.in/mgo.v2"
 	"gopkg.in/validator.v2"
+)
+
+var (
+	mgoSession      *mgo.Session
+	mgoSessionOnce  sync.Once
+	mgoDatabaseName = getenvDefault("EVENT_STORE_MONGO_DB", "event_store")
+	mgoURL          = getenvDefault("EVENT_STORE_MONGO_URL", "localhost")
 )
 
 type CspReport struct {
@@ -26,6 +35,33 @@ type CspDetails struct {
 	BlockedUri        string `json:"blocked-uri" bson:"blocked_uri" validate:"max=200"`
 	ViolatedDirective string `json:"violated-directive" bson:"violated_directive" validate:"min=1,max=200,regexp=^[a-z0-9 '/\\*\\.:;-]+$"`
 	OriginalPolicy    string `json:"original-policy" bson:"original_policy" validate:"min=1,max=200"`
+}
+
+func getMgoSession() *mgo.Session {
+	mgoSessionOnce.Do(func() {
+		var err error
+
+		mgoSession, err = mgo.Dial(mgoURL)
+		if err != nil {
+			panic(err)
+		}
+	})
+
+	return mgoSession.Clone()
+}
+
+func storeCspReport(report CspReport) {
+	session := getMgoSession()
+	defer session.Close()
+	session.SetMode(mgo.Strong, true)
+
+	collection := session.DB(mgoDatabaseName).C("reports")
+
+	err := collection.Insert(report)
+
+	if err != nil {
+		panic(err)
+	}
 }
 
 // ReportHandler receives JSON from a request body
@@ -61,6 +97,8 @@ func ReportHandler(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Unable to validate JSON", http.StatusBadRequest)
 		return
 	}
+
+	go storeCspReport(newCspReport)
 
 	w.Write([]byte("JSON received"))
 }
