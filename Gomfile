@@ -1,0 +1,3 @@
+gom 'github.com/alext/tablecloth', :commit => 'b373a9a'
+gom 'gopkg.in/mgo.v2', :commit => 'v2'
+gom 'gopkg.in/validator.v2', :commit => 'v2'
