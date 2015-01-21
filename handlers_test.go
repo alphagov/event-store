@@ -77,4 +77,25 @@ var _ = Describe("Handlers", func() {
 			Expect(report.Details.DocumentUri).To(Equal("https://www.gov.uk/page"))
 		})
 	})
+
+	Describe("HealthcheckHandler", func() {
+		It("returns a 200 OK when it pings Mongo", func() {
+			request, _ := http.NewRequest("GET", "/healthcheck", nil)
+			response := httptest.NewRecorder()
+
+			HealthcheckHandler(session)(response, request)
+
+			Expect(response.Code).To(Equal(http.StatusOK))
+			Expect(response.Body).To(MatchJSON(`{"mongo": true}`))
+		})
+
+		It("returns Method Not Allowed when not using a GET", func() {
+			request, _ := http.NewRequest("DELETE", "/healthcheck", nil)
+			response := httptest.NewRecorder()
+
+			HealthcheckHandler(session)(response, request)
+
+			Expect(response.Code).To(Equal(http.StatusMethodNotAllowed))
+		})
+	})
 })

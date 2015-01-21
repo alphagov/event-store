@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -75,5 +76,39 @@ func ReportHandler(session *mgo.Session) http.HandlerFunc {
 		}
 
 		w.Write([]byte("JSON received"))
+	}
+}
+
+type Status struct {
+	MongoDB bool `json:"mongo"`
+}
+
+func HealthcheckHandler(session *mgo.Session) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != "GET" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			w.Header().Set("Allow", "GET")
+			return
+		}
+
+		var status Status
+		var responseCode int
+
+		if session.Ping() == nil {
+			status.MongoDB = true
+			responseCode = http.StatusOK
+		} else {
+			status.MongoDB = false
+			responseCode = http.StatusServiceUnavailable
+		}
+
+		w.WriteHeader(responseCode)
+
+		encoder := json.NewEncoder(w)
+		err := encoder.Encode(&status)
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Cannot encode healthcheck response: %v", err), http.StatusInternalServerError)
+		}
 	}
 }

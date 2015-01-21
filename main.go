@@ -48,6 +48,7 @@ func main() {
 
 	publicMux := http.NewServeMux()
 	publicMux.HandleFunc("/e", ReportHandler(mgoSession))
+	publicMux.HandleFunc("/healthcheck", HealthcheckHandler(mgoSession))
 
 	log.Println("event-store: listening for events on " + eventPort)
 
