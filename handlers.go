@@ -17,7 +17,7 @@ var (
 	mgoSession      *mgo.Session
 	mgoSessionOnce  sync.Once
 	mgoDatabaseName = getenvDefault("EVENT_STORE_MONGO_DB", "event_store")
-	mgoURL          = getenvDefault("EVENT_STORE_MONGO_URL", "localhost")
+	mgoURL          = getenvDefault("EVENT_STORE_MONGO_NODES", "localhost")
 )
 
 type CspReport struct {
