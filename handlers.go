@@ -27,15 +27,14 @@ type CspReport struct {
 
 // - DocumentUri: a GOV.UK preview, staging or production URL
 // - Referrer, BlockedUri: may be blank
-// - ViolatedDirective, OriginalPolicy: one or more CSP policies which can
-//   at their most complex contain these characters:
+// - ViolatedDirective: a content security policy which can
+//   at its most complex contain these characters:
 //     default-src: 'self' https://0.example.com *.gov.uk;
 type CspDetails struct {
 	DocumentUri       string `json:"document-uri" bson:"document_uri" validate:"min=1,max=200,regexp=^https://www(\\.preview\\.alphagov\\.co|-origin\\.production\\.alphagov\\.co|\\.gov)\\.uk/[^\\s]*$"`
 	Referrer          string `json:"referrer" bson:"referrer" validate:"max=200"`
 	BlockedUri        string `json:"blocked-uri" bson:"blocked_uri" validate:"max=200"`
 	ViolatedDirective string `json:"violated-directive" bson:"violated_directive" validate:"min=1,max=200,regexp=^[a-z0-9 '/\\*\\.:;-]+$"`
-	OriginalPolicy    string `json:"original-policy" bson:"original_policy" validate:"min=1,max=200"`
 }
 
 // ReportHandler receives JSON from a request body
