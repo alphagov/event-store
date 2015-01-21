@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	eventPort = getenvDefault("PORT", "8080")
+	eventPort = getenvDefault("PORT", "3097")
 )
 
 func ConnectToMongo(hostname string) (*mgo.Session, error) {
