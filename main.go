@@ -48,6 +48,10 @@ func main() {
 
 	mgoSession, err := ConnectToMongo(mgoNodes)
 
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	publicMux := http.NewServeMux()
 	publicMux.HandleFunc("/e", ReportHandler(mgoSession))
 	publicMux.HandleFunc("/healthcheck", HealthcheckHandler(mgoSession))
