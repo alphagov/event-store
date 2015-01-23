@@ -1,22 +1,27 @@
-.PHONY: build run test clean
+.PHONY: deps test build
 
 BINARY := event-store
-BUILDFILES := main.go handlers.go
+ORG_PATH := github.com/alphagov
+REPO_PATH := $(ORG_PATH)/$(BINARY)
 
-build: $(BINARY)
+all: test build
 
-run: _vendor
-	gom run $(BUILDFILES)
+build: vendor
+	gom build -o $(BINARY)
 
-test: _vendor
+run: build
+	./$(BINARY)
+
+test: vendor
 	gom test
 
 clean:
-	rm -f $(BINARY)
+	rm -rf bin $(BINARY) _vendor
 
-_vendor: Gomfile
+vendor: deps
+	rm -rf _vendor/src/$(ORG_PATH)
+	mkdir -p _vendor/src/$(ORG_PATH)
+	ln -s $(CURDIR) _vendor/src/$(REPO_PATH)
+
+deps:
 	gom install
-	touch _vendor
-
-$(BINARY): _vendor $(BUILDFILES)
-	gom build -o $(BINARY) $(BUILDFILES)

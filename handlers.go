@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -16,89 +17,97 @@ var (
 	mgoSession      *mgo.Session
 	mgoSessionOnce  sync.Once
 	mgoDatabaseName = getenvDefault("EVENT_STORE_MONGO_DB", "event_store")
-	mgoURL          = getenvDefault("EVENT_STORE_MONGO_URL", "localhost")
+	mgoURL          = getenvDefault("EVENT_STORE_MONGO_NODES", "localhost")
 )
 
-type CspReport struct {
-	Details    CspDetails `json:"csp-report" bson:"csp_report"`
+type CSPReport struct {
+	Details    CSPDetails `json:"csp-report" bson:"csp_report"`
 	ReportTime time.Time  `bson:"date_time"`
 }
 
 // - DocumentUri: a GOV.UK preview, staging or production URL
 // - Referrer, BlockedUri: may be blank
-// - ViolatedDirective, OriginalPolicy: one or more CSP policies which can
-//   at their most complex contain these characters:
+// - ViolatedDirective: a content security policy which can
+//   at its most complex contain these characters:
 //     default-src: 'self' https://0.example.com *.gov.uk;
-type CspDetails struct {
+type CSPDetails struct {
 	DocumentUri       string `json:"document-uri" bson:"document_uri" validate:"min=1,max=200,regexp=^https://www(\\.preview\\.alphagov\\.co|-origin\\.production\\.alphagov\\.co|\\.gov)\\.uk/[^\\s]*$"`
 	Referrer          string `json:"referrer" bson:"referrer" validate:"max=200"`
 	BlockedUri        string `json:"blocked-uri" bson:"blocked_uri" validate:"max=200"`
 	ViolatedDirective string `json:"violated-directive" bson:"violated_directive" validate:"min=1,max=200,regexp=^[a-z0-9 '/\\*\\.:;-]+$"`
-	OriginalPolicy    string `json:"original-policy" bson:"original_policy" validate:"min=1,max=200"`
-}
-
-func getMgoSession() *mgo.Session {
-	mgoSessionOnce.Do(func() {
-		var err error
-
-		mgoSession, err = mgo.Dial(mgoURL)
-		if err != nil {
-			panic(err)
-		}
-	})
-
-	return mgoSession.Clone()
-}
-
-func storeCspReport(report CspReport) {
-	session := getMgoSession()
-	defer session.Close()
-	session.SetMode(mgo.Strong, true)
-
-	collection := session.DB(mgoDatabaseName).C("reports")
-
-	err := collection.Insert(report)
-
-	if err != nil {
-		panic(err)
-	}
 }
 
 // ReportHandler receives JSON from a request body
-func ReportHandler(w http.ResponseWriter, req *http.Request) {
-	var err error
-	var newCspReport CspReport
+func ReportHandler(session *mgo.Session) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		var report CSPReport
 
-	if req.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		w.Header().Set("Allow", "POST")
-		return
+		if req.Method != "POST" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			w.Header().Set("Allow", "POST")
+			return
+		}
+
+		body, err := ioutil.ReadAll(req.Body)
+		if err != nil {
+			http.Error(w, "Error reading request body", http.StatusBadRequest)
+			return
+		}
+
+		if err = json.Unmarshal(body, &report); err != nil {
+			http.Error(w, "Error parsing JSON", http.StatusBadRequest)
+			return
+		}
+
+		report.ReportTime = time.Now().UTC()
+
+		if validationError := validator.Validate(report); validationError != nil {
+			log.Println("Request failed validation:", validationError)
+			log.Println("Failed with report:", report)
+			http.Error(w, "Unable to validate JSON", http.StatusBadRequest)
+			return
+		}
+
+		collection := session.DB(mgoDatabaseName).C("reports")
+
+		if err = collection.Insert(report); err != nil {
+			panic(err)
+		}
+
+		w.Write([]byte("JSON received"))
 	}
+}
 
-	body, err := ioutil.ReadAll(req.Body)
+type Status struct {
+	MongoDB bool `json:"mongo"`
+}
 
-	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
-		return
+func HealthcheckHandler(session *mgo.Session) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		if req.Method != "GET" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			w.Header().Set("Allow", "GET")
+			return
+		}
+
+		var status Status
+		var responseCode int
+
+		if session.Ping() == nil {
+			status.MongoDB = true
+			responseCode = http.StatusOK
+		} else {
+			status.MongoDB = false
+			responseCode = http.StatusServiceUnavailable
+		}
+
+		w.WriteHeader(responseCode)
+
+		encoder := json.NewEncoder(w)
+		err := encoder.Encode(&status)
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Cannot encode healthcheck response: %v", err), http.StatusInternalServerError)
+		}
 	}
-
-	err = json.Unmarshal(body, &newCspReport)
-
-	if err != nil {
-		http.Error(w, "Error parsing JSON", http.StatusBadRequest)
-		return
-	}
-
-	newCspReport.ReportTime = time.Now().UTC()
-
-	if validationError := validator.Validate(newCspReport); validationError != nil {
-		log.Println("Request failed validation:", validationError)
-		log.Println("Failed with report:", newCspReport)
-		http.Error(w, "Unable to validate JSON", http.StatusBadRequest)
-		return
-	}
-
-	go storeCspReport(newCspReport)
-
-	w.Write([]byte("JSON received"))
 }
