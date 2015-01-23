@@ -37,68 +37,43 @@ type CspDetails struct {
 	OriginalPolicy    string `json:"original-policy" bson:"original_policy" validate:"min=1,max=200"`
 }
 
-func getMgoSession() *mgo.Session {
-	mgoSessionOnce.Do(func() {
-		var err error
+// ReportHandler receives JSON from a request body
+func ReportHandler(session *mgo.Session) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		var report CspReport
 
-		mgoSession, err = mgo.Dial(mgoURL)
+		if req.Method != "POST" {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			w.Header().Set("Allow", "POST")
+			return
+		}
+
+		body, err := ioutil.ReadAll(req.Body)
 		if err != nil {
+			http.Error(w, "Error reading request body", http.StatusBadRequest)
+			return
+		}
+
+		if err = json.Unmarshal(body, &report); err != nil {
+			http.Error(w, "Error parsing JSON", http.StatusBadRequest)
+			return
+		}
+
+		report.ReportTime = time.Now().UTC()
+
+		if validationError := validator.Validate(report); validationError != nil {
+			log.Println("Request failed validation:", validationError)
+			log.Println("Failed with report:", report)
+			http.Error(w, "Unable to validate JSON", http.StatusBadRequest)
+			return
+		}
+
+		collection := session.DB(mgoDatabaseName).C("reports")
+
+		if err = collection.Insert(report); err != nil {
 			panic(err)
 		}
-	})
 
-	return mgoSession.Clone()
-}
-
-func storeCspReport(report CspReport) {
-	session := getMgoSession()
-	defer session.Close()
-	session.SetMode(mgo.Strong, true)
-
-	collection := session.DB(mgoDatabaseName).C("reports")
-
-	err := collection.Insert(report)
-
-	if err != nil {
-		panic(err)
+		w.Write([]byte("JSON received"))
 	}
-}
-
-// ReportHandler receives JSON from a request body
-func ReportHandler(w http.ResponseWriter, req *http.Request) {
-	var err error
-	var newCspReport CspReport
-
-	if req.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		w.Header().Set("Allow", "POST")
-		return
-	}
-
-	body, err := ioutil.ReadAll(req.Body)
-
-	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusBadRequest)
-		return
-	}
-
-	err = json.Unmarshal(body, &newCspReport)
-
-	if err != nil {
-		http.Error(w, "Error parsing JSON", http.StatusBadRequest)
-		return
-	}
-
-	newCspReport.ReportTime = time.Now().UTC()
-
-	if validationError := validator.Validate(newCspReport); validationError != nil {
-		log.Println("Request failed validation:", validationError)
-		log.Println("Failed with report:", newCspReport)
-		http.Error(w, "Unable to validate JSON", http.StatusBadRequest)
-		return
-	}
-
-	go storeCspReport(newCspReport)
-
-	w.Write([]byte("JSON received"))
 }
