@@ -20,8 +20,8 @@ var (
 	mgoURL          = getenvDefault("EVENT_STORE_MONGO_NODES", "localhost")
 )
 
-type CspReport struct {
-	Details    CspDetails `json:"csp-report" bson:"csp_report"`
+type CSPReport struct {
+	Details    CSPDetails `json:"csp-report" bson:"csp_report"`
 	ReportTime time.Time  `bson:"date_time"`
 }
 
@@ -30,7 +30,7 @@ type CspReport struct {
 // - ViolatedDirective: a content security policy which can
 //   at its most complex contain these characters:
 //     default-src: 'self' https://0.example.com *.gov.uk;
-type CspDetails struct {
+type CSPDetails struct {
 	DocumentUri       string `json:"document-uri" bson:"document_uri" validate:"min=1,max=200,regexp=^https://www(\\.preview\\.alphagov\\.co|-origin\\.production\\.alphagov\\.co|\\.gov)\\.uk/[^\\s]*$"`
 	Referrer          string `json:"referrer" bson:"referrer" validate:"max=200"`
 	BlockedUri        string `json:"blocked-uri" bson:"blocked_uri" validate:"max=200"`
@@ -40,7 +40,7 @@ type CspDetails struct {
 // ReportHandler receives JSON from a request body
 func ReportHandler(session *mgo.Session) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		var report CspReport
+		var report CSPReport
 
 		if req.Method != "POST" {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

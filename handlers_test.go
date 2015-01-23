@@ -70,7 +70,7 @@ var _ = Describe("Handlers", func() {
 			Expect(response.Code).To(Equal(http.StatusOK))
 
 			collection := session.DB(mgoDatabaseName).C("reports")
-			report := CspReport{}
+			report := CSPReport{}
 
 			Expect(collection.Find(nil).One(&report)).To(BeNil())
 
