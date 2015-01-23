@@ -12,7 +12,9 @@ import (
 )
 
 var (
-	eventPort = getenvDefault("PORT", "3097")
+	eventPort  = getenvDefault("PORT", "3097")
+	mgoNodes   = getenvDefault("EVENT_STORE_MONGO_NODES", "localhost")
+	mgoSession *mgo.Session
 )
 
 func ConnectToMongo(hostname string) (*mgo.Session, error) {
@@ -44,7 +46,7 @@ func main() {
 		tablecloth.WorkingDir = wd
 	}
 
-	mgoSession, err := ConnectToMongo("localhost")
+	mgoSession, err := ConnectToMongo(mgoNodes)
 
 	publicMux := http.NewServeMux()
 	publicMux.HandleFunc("/e", ReportHandler(mgoSession))

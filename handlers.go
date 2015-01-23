@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"sync"
 	"time"
 
 	"gopkg.in/mgo.v2"
@@ -14,10 +13,7 @@ import (
 )
 
 var (
-	mgoSession      *mgo.Session
-	mgoSessionOnce  sync.Once
 	mgoDatabaseName = getenvDefault("EVENT_STORE_MONGO_DB", "event_store")
-	mgoURL          = getenvDefault("EVENT_STORE_MONGO_NODES", "localhost")
 )
 
 type CSPReport struct {
