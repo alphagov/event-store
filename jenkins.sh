@@ -3,4 +3,4 @@
 set -x
 set -eu
 
-make test
+make all
