@@ -64,7 +64,10 @@ func ReportHandler(session *mgo.Session) http.HandlerFunc {
 			return
 		}
 
-		collection := session.DB(mgoDatabaseName).C("reports")
+		currentSession := session.Copy()
+		defer currentSession.Close()
+
+		collection := currentSession.DB(mgoDatabaseName).C("reports")
 
 		if err = collection.Insert(report); err != nil {
 			panic(err)
@@ -89,7 +92,10 @@ func HealthcheckHandler(session *mgo.Session) http.HandlerFunc {
 		var status Status
 		var responseCode int
 
-		if session.Ping() == nil {
+		currentSession := session.Copy()
+		defer currentSession.Close()
+
+		if currentSession.Ping() == nil {
 			status.MongoDB = true
 			responseCode = http.StatusOK
 		} else {
