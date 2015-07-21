@@ -47,6 +47,9 @@ func main() {
 	}
 
 	mgoSession, err := ConnectToMongo(mgoNodes)
+	if err != nil {
+		log.Fatal("Error connectiong to mongo : ", err)
+	}
 
 	publicMux := http.NewServeMux()
 	publicMux.HandleFunc("/e", ReportHandler(mgoSession))
